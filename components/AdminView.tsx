@@ -174,29 +174,49 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
     const processData = async (data: any[]) => {
       setUploadProgress({ percentage: 80, message: 'Processing Data...' });
 
-      const keyMapping: {[key:string]: keyof Product} = {
-          'product name': 'productName',
-          'product id': 'productID',
-          "supplier's website link": 'supplierWebsiteLink',
-          'sourcing website name': 'sourcingWebsiteName',
-          "supplier's country name": 'supplierCountryName',
-          "supplier's product page link": 'supplierProductPageLink',
-          'category': 'category',
-          'gaotek link': 'gaoTekLink'
+      // Robust key mapping to handle different header formats (e.g., camelCase, with/without possessive 's')
+      const keyMapping: { [key: string]: keyof Product } = {
+        productname: 'productName',
+        productid: 'productID',
+        supplierwebsitelink: 'supplierWebsiteLink',
+        supplierswebsitelink: 'supplierWebsiteLink',
+        sourcingwebsitename: 'sourcingWebsiteName',
+        suppliercountryname: 'supplierCountryName',
+        supplierscountryname: 'supplierCountryName',
+        supplierproductpagelink: 'supplierProductPageLink',
+        suppliersproductpagelink: 'supplierProductPageLink',
+        category: 'category',
+        gaoteklink: 'gaoTekLink',
       };
 
+      const normalizeKey = (key: string) => String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+
       const productsToUpload: Product[] = data.map(row => {
-          const product: Partial<Product> = {};
-          for(const key in row) {
-              const normalizedKey = String(key).toLowerCase().trim();
-              if (keyMapping[normalizedKey]) {
-                  product[keyMapping[normalizedKey]] = row[key];
-              }
+        const product: Partial<Product> = {};
+        for (const key in row) {
+          const normalizedKey = normalizeKey(key);
+          if (keyMapping[normalizedKey] && row[key] !== null && row[key] !== undefined) {
+            product[keyMapping[normalizedKey]] = String(row[key]).trim();
           }
-          if (typeof product.supplierProductPageLink !== 'string' || !product.supplierProductPageLink.trim()) {
-            return null;
-          }
-          return product as Product;
+        }
+
+        // The primary key is essential. If it's missing or empty, discard the row.
+        if (!product.supplierProductPageLink) {
+          return null;
+        }
+
+        // Fill in default empty strings for any missing optional fields.
+        return {
+          productName: '',
+          productID: '',
+          supplierWebsiteLink: '',
+          sourcingWebsiteName: '',
+          supplierCountryName: '',
+          category: '',
+          gaoTekLink: '',
+          ...product,
+          supplierProductPageLink: product.supplierProductPageLink,
+        };
       }).filter((p): p is Product => p !== null);
 
       if (productsToUpload.length > 0) {
@@ -207,14 +227,16 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
           setTimeout(() => setUploadProgress(null), 3000);
         } catch (error) {
           console.error('Error during batch upload:', error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          alert(`Error during batch upload: ${errorMessage}`);
           setUploadProgress(null);
         }
       } else {
-        alert("No valid products found in the uploaded file. Ensure columns match the required format and that 'Supplier's product page link' is present for all rows.");
+        alert("No valid product rows found. Please ensure the file contains a column for 'Supplier's Product Page Link' and that column headers are recognizable (e.g., 'Product Name', 'productName').");
         setUploadProgress(null);
       }
 
-      if(fileInputRef.current) fileInputRef.current.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
     reader.onload = (e) => {
