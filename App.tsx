@@ -4,7 +4,6 @@ import Header from './components/Header';
 import AdminView from './components/AdminView';
 import UserView from './components/UserView';
 import AdminLogin from './components/AdminLogin';
-import { getAllProducts, addProduct, updateProduct, deleteProduct, addProductsBatch } from './db';
 
 function App() {
   const [view, setView] = useState<'admin' | 'user'>('user');
@@ -12,6 +11,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
@@ -19,26 +19,17 @@ function App() {
     setTimeout(() => setNotification(null), 5000);
   };
 
-  const refreshProducts = useCallback(async () => {
+  const loadInitialProducts = useCallback(async () => {
     setIsLoading(true);
     try {
-      const dbProducts = await getAllProducts();
-      // Check if DB is empty and seed it from JSON file if needed.
-      if (dbProducts.length === 0) {
-        console.log("Database is empty. Seeding from products.json...");
-        const response = await fetch('/products.json');
-        if (response.ok) {
-          const seedProducts: Product[] = await response.json();
-          await addProductsBatch(seedProducts);
-          const seededProducts = await getAllProducts();
-          setProducts(seededProducts);
-          showNotification('success', `Database seeded with ${seededProducts.length} sample products.`);
-        } else {
-           console.error("Failed to fetch seed data from products.json");
-           setProducts([]);
-        }
+      const response = await fetch('/products.json');
+      if (response.ok) {
+        const seedProducts: Product[] = await response.json();
+        setProducts(seedProducts.sort((a,b) => String(a.productName || '').localeCompare(String(b.productName || ''))));
       } else {
-        setProducts(dbProducts);
+         console.error("Failed to fetch data from products.json");
+         setProducts([]);
+         showNotification('error', 'Could not load products.json.');
       }
     } catch (error) {
       console.error("Failed to load products:", error);
@@ -46,12 +37,13 @@ function App() {
       setProducts([]);
     } finally {
       setIsLoading(false);
+      setHasUnsavedChanges(false);
     }
   }, []);
 
   useEffect(() => {
-    refreshProducts();
-  }, [refreshProducts]);
+    loadInitialProducts();
+  }, [loadInitialProducts]);
 
   const handleViewChange = (targetView: 'admin' | 'user') => {
     if (targetView === 'admin' && !isAdmin) {
@@ -68,54 +60,57 @@ function App() {
   };
   
   const handleLogout = () => {
+    if (hasUnsavedChanges && !window.confirm("You have unsaved changes. Are you sure you want to log out? Changes will be lost.")) {
+      return;
+    }
     setIsAdmin(false);
     setView('user');
+    // Optionally reload data to discard changes
+    loadInitialProducts();
   };
 
-  const handleAddProduct = async (product: Product) => {
-    try {
-      await addProduct(product);
-      await refreshProducts();
-      showNotification('success', 'Product added successfully!');
-    } catch (error: any) {
-      console.error(error);
-      showNotification('error', error.toString());
-      throw error;
+  const handleAddProduct = (product: Product) => {
+    if (products.some(p => p.supplierProductPageLink === product.supplierProductPageLink)) {
+       const errorMsg = 'Product with this "Supplier\'s Product Page Link" already exists.';
+       showNotification('error', errorMsg);
+       throw new Error(errorMsg);
     }
+    setProducts(prev => [...prev, product].sort((a,b) => String(a.productName || '').localeCompare(String(b.productName || ''))));
+    setHasUnsavedChanges(true);
+    showNotification('success', 'Product added. Save changes to download.');
   };
 
-  const handleUpdateProduct = async (product: Product) => {
-    try {
-      await updateProduct(product);
-      await refreshProducts();
-      showNotification('success', 'Product updated successfully!');
-    } catch (error: any) {
-      console.error(error);
-      showNotification('error', error.toString());
-      throw error;
-    }
+  const handleUpdateProduct = (product: Product) => {
+    setProducts(prev => prev.map(p => p.supplierProductPageLink === product.supplierProductPageLink ? product : p));
+    setHasUnsavedChanges(true);
+    showNotification('success', 'Product updated. Save changes to download.');
   };
 
-  const handleDeleteProduct = async (supplierProductPageLink: string) => {
-    try {
-      await deleteProduct(supplierProductPageLink);
-      await refreshProducts();
-      showNotification('success', 'Product deleted successfully!');
-    } catch (error: any) {
-      console.error(error);
-      showNotification('error', error.toString());
-    }
+  const handleDeleteProduct = (supplierProductPageLink: string) => {
+    setProducts(prev => prev.filter(p => p.supplierProductPageLink !== supplierProductPageLink));
+    setHasUnsavedChanges(true);
+    showNotification('success', 'Product deleted. Save changes to download.');
   };
 
-  const handleBatchUpload = async (newProducts: Product[]) => {
-    try {
-      const result = await addProductsBatch(newProducts);
-      await refreshProducts();
-      showNotification('success', `${result.success} new products added, ${result.skipped} duplicates skipped.`);
-    } catch (error: any) {
-      console.error(error);
-      showNotification('error', error.toString());
-    }
+  const handleBatchUpload = (newProducts: Product[]) => {
+    const existingLinks = new Set(products.map(p => p.supplierProductPageLink));
+    const productsToAdd = newProducts.filter(p => !existingLinks.has(p.supplierProductPageLink));
+    
+    setProducts(prev => [...prev, ...productsToAdd].sort((a,b) => String(a.productName || '').localeCompare(String(b.productName || ''))));
+    setHasUnsavedChanges(true);
+    showNotification('success', `${productsToAdd.length} new products added, ${newProducts.length - productsToAdd.length} duplicates skipped.`);
+  };
+
+  const handleSaveChanges = () => {
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
+      JSON.stringify(products, null, 2)
+    )}`;
+    const link = document.createElement("a");
+    link.href = jsonString;
+    link.download = "products.json";
+    link.click();
+    setHasUnsavedChanges(false);
+    showNotification('success', 'Database downloaded! Replace the old products.json in the project source to make changes permanent.');
   };
 
 
@@ -147,6 +142,8 @@ function App() {
             onUpdateProduct={handleUpdateProduct}
             onDeleteProduct={handleDeleteProduct}
             onBatchUpload={handleBatchUpload}
+            onSaveChanges={handleSaveChanges}
+            hasUnsavedChanges={hasUnsavedChanges}
           />
         ) : (
           <UserView products={products} />
