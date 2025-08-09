@@ -18,7 +18,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onCancel }) => 
     // --- PRODUCTION-READY AUTHENTICATION TEMPLATE ---
     //
     // To make this app secure for production, you must build a backend server.
-    // Replace the insecure "DEV-ONLY LOGIC" block below with this `fetch` call.
+    // Replace the logic below with this `fetch` call.
     // This code sends the password to a backend endpoint (e.g., '/api/login')
     // which is responsible for securely verifying it.
     //
@@ -49,15 +49,17 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onCancel }) => 
     // =================================================================================
 
 
-    // --- SECURE AUTHENTICATION LOGIC ---
-    // This logic reads the admin password from an environment variable.
-    // This is secure as the password is not exposed in the client-side code.
-    // The ADMIN_PASSWORD environment variable must be set in your deployment environment.
+    // --- CLIENT-SIDE AUTHENTICATION (LESS SECURE) ---
+    // This logic reads the password from an environment variable.
+    // This is more secure than hardcoding it or placing it in a public file,
+    // but a proper backend authentication system is strongly recommended for production.
+    // The password should be set as an environment variable (e.g., ADMIN_PASSWORD)
+    // in your deployment environment.
     const adminPassword = process.env.ADMIN_PASSWORD;
 
     if (!adminPassword) {
         console.error("Configuration Error: `ADMIN_PASSWORD` environment variable is not set.");
-        setError("Application is not configured correctly. An admin password must be set in the deployment environment.");
+        setError("Application is not configured correctly. The administrator must set the admin password.");
         return;
     }
 
@@ -67,7 +69,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onCancel }) => 
       setError('Incorrect password. Please try again.');
       setPassword('');
     }
-    // --- END OF SECURE LOGIC ---
+    // --- END OF CLIENT-SIDE LOGIC ---
   };
   
   return (
