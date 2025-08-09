@@ -1,0 +1,32 @@
+[
+  {
+    "productName": "Advanced RF Signal Generator",
+    "productID": "GAO-123-001",
+    "supplierWebsiteLink": "https://supplier-a.com",
+    "sourcingWebsiteName": "Global Electronics",
+    "supplierCountryName": "USA",
+    "supplierProductPageLink": "https://supplier-a.com/products/rf-gen-pro",
+    "category": "RF Equipment",
+    "gaoTekLink": "https://gaotek.com/product/advanced-rf-signal-generator"
+  },
+  {
+    "productName": "High-Precision Oscilloscope",
+    "productID": "GAO-456-002",
+    "supplierWebsiteLink": "https://supplier-b.net",
+    "sourcingWebsiteName": "Test Instruments Inc.",
+    "supplierCountryName": "Germany",
+    "supplierProductPageLink": "https://supplier-b.net/items/osc-4000x",
+    "category": "Test Equipment",
+    "gaoTekLink": "https://gaotek.com/product/high-precision-oscilloscope"
+  },
+  {
+    "productName": "Portable Spectrum Analyzer",
+    "productID": "GAO-789-003",
+    "supplierWebsiteLink": "https://supplier-c.co.jp",
+    "sourcingWebsiteName": "JP Tech",
+    "supplierCountryName": "Japan",
+    "supplierProductPageLink": "https://supplier-c.co.jp/analyzer/portable-spec",
+    "category": "Test Equipment",
+    "gaoTekLink": "https://gaotek.com/product/portable-spectrum-analyzer"
+  }
+]
