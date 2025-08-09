@@ -8,16 +8,18 @@ declare var XLSX: any;
 
 interface AdminViewProps {
   products: Product[];
-  onAddProduct: (product: Product) => Promise<void>;
-  onUpdateProduct: (product: Product) => Promise<void>;
-  onDeleteProduct: (supplierProductPageLink: string) => Promise<void>;
-  onBatchUpload: (products: Product[]) => Promise<void>;
+  onAddProduct: (product: Product) => void;
+  onUpdateProduct: (product: Product) => void;
+  onDeleteProduct: (supplierProductPageLink: string) => void;
+  onBatchUpload: (products: Product[]) => void;
+  onSaveChanges: () => void;
+  hasUnsavedChanges: boolean;
 }
 
 const ProductModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (product: Product) => Promise<void>;
+  onSubmit: (product: Product) => void;
   product: Product | null;
 }> = ({ isOpen, onClose, onSubmit, product }) => {
   const [formData, setFormData] = useState<Product>(
@@ -41,14 +43,14 @@ const ProductModal: React.FC<{
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-        await onSubmit(formData);
+        onSubmit(formData);
         onClose();
     } catch (error) {
-        // Error is handled by App.tsx notification, but we stop the loading spinner
+        // Error is handled by App.tsx notification
     } finally {
         setIsSubmitting(false);
     }
@@ -101,7 +103,7 @@ const ProductModal: React.FC<{
 };
 
 
-const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateProduct, onDeleteProduct, onBatchUpload }) => {
+const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateProduct, onDeleteProduct, onBatchUpload, onSaveChanges, hasUnsavedChanges }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -119,16 +121,16 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
   };
   
   const handleDelete = (link: string) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
+    if (window.confirm('Are you sure you want to delete this product? This action is temporary until saved.')) {
         onDeleteProduct(link);
     }
   };
 
-  const handleModalSubmit = async (product: Product) => {
+  const handleModalSubmit = (product: Product) => {
     if (editingProduct) {
-        await onUpdateProduct(product);
+        onUpdateProduct(product);
     } else {
-        await onAddProduct(product);
+        onAddProduct(product);
     }
   };
 
@@ -171,10 +173,9 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
         if(fileInputRef.current) fileInputRef.current.value = "";
     };
 
-    const processData = async (data: any[]) => {
+    const processData = (data: any[]) => {
       setUploadProgress({ percentage: 80, message: 'Processing Data...' });
 
-      // Robust key mapping to handle different header formats (e.g., camelCase, with/without possessive 's')
       const keyMapping: { [key: string]: keyof Product } = {
         productname: 'productName',
         productid: 'productID',
@@ -200,39 +201,23 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
           }
         }
 
-        // The primary key is essential. If it's missing or empty, discard the row.
-        if (!product.supplierProductPageLink) {
-          return null;
-        }
+        if (!product.supplierProductPageLink) return null;
 
-        // Fill in default empty strings for any missing optional fields.
         return {
-          productName: '',
-          productID: '',
-          supplierWebsiteLink: '',
-          sourcingWebsiteName: '',
-          supplierCountryName: '',
-          category: '',
-          gaoTekLink: '',
+          productName: '', productID: '', supplierWebsiteLink: '', sourcingWebsiteName: '',
+          supplierCountryName: '', category: '', gaoTekLink: '',
           ...product,
           supplierProductPageLink: product.supplierProductPageLink,
         };
       }).filter((p): p is Product => p !== null);
 
       if (productsToUpload.length > 0) {
-        try {
-          setUploadProgress({ percentage: 90, message: 'Updating DB...' });
-          await onBatchUpload(productsToUpload);
-          setUploadProgress({ percentage: 100, message: 'Updated!' });
-          setTimeout(() => setUploadProgress(null), 3000);
-        } catch (error) {
-          console.error('Error during batch upload:', error);
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          alert(`Error during batch upload: ${errorMessage}`);
-          setUploadProgress(null);
-        }
+        setUploadProgress({ percentage: 90, message: 'Applying changes...' });
+        onBatchUpload(productsToUpload);
+        setUploadProgress({ percentage: 100, message: 'Done!' });
+        setTimeout(() => setUploadProgress(null), 3000);
       } else {
-        alert("No valid product rows found. Please ensure the file contains a column for 'Supplier's Product Page Link' and that column headers are recognizable (e.g., 'Product Name', 'productName').");
+        alert("No valid new product rows found. Please ensure the file contains a column for 'Supplier's Product Page Link' and that it doesn't contain products already in the database.");
         setUploadProgress(null);
       }
 
@@ -249,9 +234,7 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
                     Papa.parse(fileData, {
                         header: true,
                         skipEmptyLines: true,
-                        complete: (results: any) => {
-                          processData(results.data);
-                        }
+                        complete: (results: any) => processData(results.data),
                     });
                 } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
                     const workbook = XLSX.read(fileData, { type: 'array' });
@@ -297,9 +280,9 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
         <div className="flex flex-col sm:flex-row gap-4 items-center">
           <div className="flex-1">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Manage Database</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Add a single product or batch upload from a file.</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Add, upload, and then save your changes to download the new database file.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-center">
             <button onClick={handleAdd} className="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-indigo-500 font-semibold transition-colors duration-200">
               Add Manually
             </button>
@@ -308,10 +291,7 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
               <div className="flex flex-col justify-center px-4 py-2 w-[160px] h-[42px]">
                 <span className="text-center text-xs text-gray-700 dark:text-gray-300 mb-1">{uploadProgress.message}</span>
                 <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5">
-                    <div 
-                        className={`h-1.5 rounded-full transition-all duration-300 ${uploadProgress.percentage === 100 ? 'bg-green-500' : 'bg-indigo-600'}`} 
-                        style={{ width: `${uploadProgress.percentage}%` }}
-                    ></div>
+                    <div className={`h-1.5 rounded-full transition-all duration-300 ${uploadProgress.percentage === 100 ? 'bg-green-500' : 'bg-indigo-600'}`} style={{ width: `${uploadProgress.percentage}%` }}></div>
                 </div>
               </div>
             ) : (
@@ -320,6 +300,11 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
                   <span>Upload File</span>
               </button>
             )}
+            <button onClick={onSaveChanges} disabled={!hasUnsavedChanges} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500 flex items-center font-semibold transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed relative">
+                <DownloadIcon className="h-5 w-5 mr-2" />
+                <span>Save & Download</span>
+                {hasUnsavedChanges && <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-800"></span>}
+            </button>
           </div>
         </div>
       </div>
@@ -335,7 +320,7 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
                     />
                     <SearchIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"/>
                 </div>
-                <button onClick={handleExportXLSX} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500 flex items-center font-semibold transition-colors duration-200 flex-shrink-0">
+                <button onClick={handleExportXLSX} className="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-gray-500 flex items-center font-semibold transition-colors duration-200 flex-shrink-0">
                   <DownloadIcon className="h-5 w-5 mr-2" /> Export
                 </button>
             </div>
