@@ -105,7 +105,7 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [isLoadingUpload, setIsLoadingUpload] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ percentage: number; message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleEdit = (product: Product) => {
@@ -153,11 +153,27 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setIsLoadingUpload(true);
+    setUploadProgress({ percentage: 0, message: 'Starting...' });
+
     const reader = new FileReader();
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    
+    reader.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const percentage = Math.round((e.loaded / e.total) * 50);
+        setUploadProgress({ percentage, message: 'Reading File...' });
+      }
+    };
+    
+    reader.onerror = () => {
+        alert("Error reading file.");
+        setUploadProgress(null);
+        if(fileInputRef.current) fileInputRef.current.value = "";
+    };
 
-    const processData = (data: any[]) => {
+    const processData = async (data: any[]) => {
+      setUploadProgress({ percentage: 80, message: 'Processing Data...' });
+
       const keyMapping: {[key:string]: keyof Product} = {
           'product name': 'productName',
           'product id': 'productID',
@@ -177,7 +193,6 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
                   product[keyMapping[normalizedKey]] = row[key];
               }
           }
-          // Basic validation: ensure the primary key exists and is a string
           if (typeof product.supplierProductPageLink !== 'string' || !product.supplierProductPageLink.trim()) {
             return null;
           }
@@ -185,39 +200,60 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
       }).filter((p): p is Product => p !== null);
 
       if (productsToUpload.length > 0) {
-        onBatchUpload(productsToUpload);
+        try {
+          setUploadProgress({ percentage: 90, message: 'Updating DB...' });
+          await onBatchUpload(productsToUpload);
+          setUploadProgress({ percentage: 100, message: 'Updated!' });
+          setTimeout(() => setUploadProgress(null), 3000);
+        } catch (error) {
+          console.error('Error during batch upload:', error);
+          setUploadProgress(null);
+        }
       } else {
         alert("No valid products found in the uploaded file. Ensure columns match the required format and that 'Supplier's product page link' is present for all rows.");
+        setUploadProgress(null);
       }
 
-      setIsLoadingUpload(false);
-      // Reset file input
       if(fileInputRef.current) fileInputRef.current.value = "";
     };
 
+    reader.onload = (e) => {
+        const fileData = e.target?.result;
+        setUploadProgress({ percentage: 50, message: 'Parsing File...' });
+        
+        setTimeout(() => {
+            try {
+                if (fileExtension === 'csv') {
+                    Papa.parse(fileData, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (results: any) => {
+                          processData(results.data);
+                        }
+                    });
+                } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+                    const workbook = XLSX.read(fileData, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet);
+                    processData(json);
+                }
+            } catch (error) {
+                console.error("File parsing error:", error);
+                alert("Failed to parse the file. Please check its format and content.");
+                setUploadProgress(null);
+                if(fileInputRef.current) fileInputRef.current.value = "";
+            }
+        }, 100);
+    };
+
     if (fileExtension === 'csv') {
-      reader.onload = (e) => {
-        const text = e.target?.result;
-        Papa.parse(text, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results: any) => processData(results.data)
-        });
-      };
       reader.readAsText(file);
     } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-      reader.onload = (e) => {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet);
-        processData(json);
-      };
       reader.readAsArrayBuffer(file);
     } else {
       alert('Unsupported file type. Please upload a .csv or .xlsx file.');
-      setIsLoadingUpload(false);
+      setUploadProgress(null);
     }
   };
   
@@ -245,11 +281,23 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onUpdateP
             <button onClick={handleAdd} className="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-indigo-500 font-semibold transition-colors duration-200">
               Add Manually
             </button>
-            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" style={{ display: 'none' }} />
-            <button onClick={() => fileInputRef.current?.click()} disabled={isLoadingUpload} className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500 flex items-center font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
-              <UploadIcon className="h-5 w-5 mr-2" />
-              {isLoadingUpload ? 'Processing...' : 'Upload File'}
-            </button>
+            <input type="file" ref={fileInputRef} onChange={handleFileUpload} disabled={!!uploadProgress} accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" style={{ display: 'none' }} />
+             {uploadProgress ? (
+              <div className="flex flex-col justify-center px-4 py-2 w-[160px] h-[42px]">
+                <span className="text-center text-xs text-gray-700 dark:text-gray-300 mb-1">{uploadProgress.message}</span>
+                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5">
+                    <div 
+                        className={`h-1.5 rounded-full transition-all duration-300 ${uploadProgress.percentage === 100 ? 'bg-green-500' : 'bg-indigo-600'}`} 
+                        style={{ width: `${uploadProgress.percentage}%` }}
+                    ></div>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => fileInputRef.current?.click()} className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500 flex items-center font-semibold transition-colors duration-200">
+                  <UploadIcon className="h-5 w-5 mr-2" />
+                  <span>Upload File</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
