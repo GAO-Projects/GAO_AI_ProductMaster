@@ -4,6 +4,7 @@ import Header from './components/Header';
 import AdminView from './components/AdminView';
 import UserView from './components/UserView';
 import AdminLogin from './components/AdminLogin';
+import seedProducts from './products.json';
 
 function App() {
   const [view, setView] = useState<'admin' | 'user'>('user');
@@ -19,21 +20,14 @@ function App() {
     setTimeout(() => setNotification(null), 5000);
   };
 
-  const loadInitialProducts = useCallback(async () => {
+  const loadInitialProducts = useCallback(() => {
     setIsLoading(true);
     try {
-      const response = await fetch('/products.json');
-      if (response.ok) {
-        const seedProducts: Product[] = await response.json();
-        setProducts(seedProducts.sort((a,b) => String(a.productName || '').localeCompare(String(b.productName || ''))));
-      } else {
-         console.error("Failed to fetch data from products.json");
-         setProducts([]);
-         showNotification('error', 'Could not load products.json.');
-      }
+      // Use the statically imported product data. A copy is made to allow for sorting.
+      setProducts([...seedProducts].sort((a,b) => String(a.productName || '').localeCompare(String(b.productName || ''))));
     } catch (error) {
-      console.error("Failed to load products:", error);
-      showNotification('error', 'Failed to load product database.');
+      console.error("Failed to load or parse products.json:", error);
+      showNotification('error', 'Failed to load product database. The products.json file may be malformed.');
       setProducts([]);
     } finally {
       setIsLoading(false);
@@ -65,7 +59,7 @@ function App() {
     }
     setIsAdmin(false);
     setView('user');
-    // Optionally reload data to discard changes
+    // Reload initial data to discard any changes
     loadInitialProducts();
   };
 
