@@ -1,0 +1,6 @@
+{
+  "name": "GAO AI Product Master",
+  "description": "An application to manage and search for product information. Admins can upload product data via CSV or manual entry, and users can search for products using the supplier's product page link.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
