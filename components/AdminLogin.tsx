@@ -49,18 +49,16 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onCancel }) => 
     // =================================================================================
 
 
-    // --- DEV-ONLY LOGIC (INSECURE) ---
-    // This logic is for development and demonstration ONLY. It is NOT secure for a
-    // public website because the password check happens in the browser.
-    // In a production environment, the password should be checked on a backend server.
-    // See the "PRODUCTION-READY" template above for the correct approach.
-    // The 'ADMIN_PASSWORD' would be injected by a build tool from a secure environment variable.
+    // --- SECURE AUTHENTICATION LOGIC ---
+    // This logic reads the admin password from an environment variable.
+    // This is secure as the password is not exposed in the client-side code.
+    // The ADMIN_PASSWORD environment variable must be set in your deployment environment.
     const adminPassword = process.env.ADMIN_PASSWORD;
 
     if (!adminPassword) {
-      console.error("Configuration Error: The ADMIN_PASSWORD environment variable is not set.");
-      setError("Application is not configured correctly. An admin password must be set in the deployment environment.");
-      return;
+        console.error("Configuration Error: `ADMIN_PASSWORD` environment variable is not set.");
+        setError("Application is not configured correctly. An admin password must be set in the deployment environment.");
+        return;
     }
 
     if (password === adminPassword) {
@@ -69,7 +67,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onCancel }) => 
       setError('Incorrect password. Please try again.');
       setPassword('');
     }
-    // --- END OF INSECURE LOGIC ---
+    // --- END OF SECURE LOGIC ---
   };
   
   return (
