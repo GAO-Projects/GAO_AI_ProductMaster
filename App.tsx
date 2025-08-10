@@ -144,7 +144,7 @@ function App() {
         )}
       </main>
        <footer className="text-center p-4 text-xs text-gray-500">
-        GAO AI Product Master © 2024
+        GAO AI Product Master © 2025
       </footer>
     </div>
   );
