@@ -55,7 +55,7 @@ const UserView: React.FC<UserViewProps> = ({ products }) => {
               type="url"
               value={searchUrl}
               onChange={(e) => setSearchUrl(e.target.value)}
-              placeholder="https://product-a.com/category/rf-gen-pro"
+              placeholder="https://products-a.com/category/rf-gen-pro"
               className="w-full pl-10 pr-4 py-3 bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-gray-100 transition"
             />
           </div>
