@@ -44,7 +44,7 @@ const UserView: React.FC<UserViewProps> = ({ products }) => {
       <div className="w-full bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-white">Search for a Product</h2>
         <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
-          Paste the full "Product page link" to find a match in our database.
+          Paste the "Product page link" to find a match in our database.
         </p>
         <form onSubmit={handleSearch} className="flex flex-col sm:flex-row items-center gap-2">
           <div className="relative flex-grow w-full">
