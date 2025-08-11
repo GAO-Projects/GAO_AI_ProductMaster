@@ -44,7 +44,7 @@ const UserView: React.FC<UserViewProps> = ({ products }) => {
       <div className="w-full bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-white">Search for a Product</h2>
         <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
-          Paste the full "Supplier's product page link" to find a match in our database.
+          Paste the full "Product page link" to find a match in our database.
         </p>
         <form onSubmit={handleSearch} className="flex flex-col sm:flex-row items-center gap-2">
           <div className="relative flex-grow w-full">
@@ -55,7 +55,7 @@ const UserView: React.FC<UserViewProps> = ({ products }) => {
               type="url"
               value={searchUrl}
               onChange={(e) => setSearchUrl(e.target.value)}
-              placeholder="https://supplier-a.com/products/rf-gen-pro"
+              placeholder="https://product-a.com/category/rf-gen-pro"
               className="w-full pl-10 pr-4 py-3 bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-gray-100 transition"
             />
           </div>
