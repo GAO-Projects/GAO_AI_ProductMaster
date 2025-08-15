@@ -46,7 +46,7 @@ const UserView: React.FC<UserViewProps> = ({ products }) => {
   return (
     <div className="max-w-4xl mx-auto flex flex-col items-center">
       <div className="w-full bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-white">Search for a Product</h2>
+        <h2 className="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-white">GAO Product's Similarity Check</h2>
         <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
           Paste a "Supplier's Product Page Link" or "GAOTek Link" to find a match in our database.
         </p>
